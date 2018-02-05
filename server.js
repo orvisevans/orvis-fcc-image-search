@@ -6,10 +6,28 @@
 'use strict';
 
 var fs = require('fs');
-var google = require('googleapis');
-var customsearch = google.customsearch('v1');
 var express = require('express');
 var app = express();
+
+var google = require('googleapis');
+var giSearch = google.customsearch('v1');
+const CX = process.env.API_KEY
+const API_KEY = process.env.API_KEY
+
+function imageSearch(search, callback) {
+  giSearch.cse.list({
+    cx: CX,
+    q: search,
+    auth: API_KEY
+  }, (err, res) => {
+    if (err) { console.error("CSE error: \n", err);
+              callback(err, null);
+              return; }
+    console.log('Result: ' + res.searchInformation.formattedTotalResults);
+    callback(err, res.items);
+  });
+}
+  
  
 if (!process.env.DISABLE_XORIGIN) {
   app.use(function(req, res, next) {
@@ -34,11 +52,19 @@ app.route('/_api/package.json')
       res.type('txt').send(data.toString());
     });
   });
-  
-app.route('/')
-    .get(function(req, res) {
-		  res.sendFile(process.cwd() + '/views/index.html');
+
+app.route('/:search')
+  .get((req, res) => {
+    imageSearch(req.params.search, (err, results) => {
+      if (err) { res.status(500).send(err); return; }
+      res.send(results);
     });
+});
+  
+// app.route('/')
+//     .get(function(req, res) {
+// 		  res.sendFile(process.cwd() + '/views/index.html');
+//     });
 
 // Respond not found to all the wrong routes
 app.use(function(req, res, next){
