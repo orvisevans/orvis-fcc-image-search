@@ -11,20 +11,32 @@ var app = express();
 
 var google = require('googleapis');
 var giSearch = google.customsearch('v1');
-const CX = process.env.API_KEY
+const CX = process.env.SEARCH_ENGINE_ID
 const API_KEY = process.env.API_KEY
 
-function imageSearch(search, callback) {
+function imageSearch(search, startWith, callback) {
   giSearch.cse.list({
     cx: CX,
     q: search,
-    auth: API_KEY
+    auth: API_KEY,
+    searchType: "image",
+    start: startWith
+    
   }, (err, res) => {
     if (err) { console.error("CSE error: \n", err);
               callback(err, null);
               return; }
-    console.log('Result: ' + res.searchInformation.formattedTotalResults);
-    callback(err, res.items);
+    callback(err, res.data.items);
+  });
+}
+
+function mapImageArray(imageArray) {
+  return imageArray.map(x => {
+    return {url: x.link,
+            snippet: x.snippet,
+            thumbnail: x.thumbnailLink,
+            context: x.displayLink
+           }
   });
 }
   
@@ -53,18 +65,21 @@ app.route('/_api/package.json')
     });
   });
 
-app.route('/:search')
+
+app.route('/api/imagesearch/:search')
   .get((req, res) => {
-    imageSearch(req.params.search, (err, results) => {
+    var offset = req.query.offset + 1 || 1;
+    console.log("Offset: " + offset);
+    imageSearch(req.params.search, offset, (err, results) => {
       if (err) { res.status(500).send(err); return; }
-      res.send(results);
+      res.status(200).type('json').send(mapImageArray(results));
     });
 });
   
-// app.route('/')
-//     .get(function(req, res) {
-// 		  res.sendFile(process.cwd() + '/views/index.html');
-//     });
+app.route('/')
+    .get(function(req, res) {
+		  res.sendFile(process.cwd() + '/views/index.html');
+    });
 
 // Respond not found to all the wrong routes
 app.use(function(req, res, next){
